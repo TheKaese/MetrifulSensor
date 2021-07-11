@@ -18,11 +18,8 @@
 */
 
 #include <Metriful_sensor.h>
-#include "esp_log.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
-#define TAG "cycle_readout"
 
 //////////////////////////////////////////////////////////
 // USER-EDITABLE SETTINGS
@@ -40,11 +37,13 @@ bool printDataAsColumns = false;
 //////////////////////////////////////////////////////////
 
 // Structs for data
-AirData_t airData = {0};
-AirQualityData_t airQualityData = {0};
-LightData_t lightData = {0};
-SoundData_t soundData = {0};
-ParticleData_t particleData = {0};
+AirData_t airData;
+AirQualityData_t airQualityData;
+LightData_t lightData;
+SoundData_t soundData;
+ParticleData_t particleData;
+
+extern volatile bool ready_assertion_event; 
 
 void main_loop(void *param)
 {
@@ -54,6 +53,7 @@ void main_loop(void *param)
         if (!ready_assertion_event)
         {
             vTaskDelay(10/portTICK_RATE_MS);
+            continue;
         }
         ready_assertion_event = false;
 

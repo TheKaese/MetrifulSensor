@@ -50,8 +50,6 @@
 
 ////////////////////////////////////////////////////////////////////////
 
-#define TAG "Metriful_Sensor"
-
 #define I2C_CLK_FREQ_HZ 100000
 
 // Unicode symbol strings
@@ -61,9 +59,11 @@
 #define SUBSCRIPT_2 "\u2082"
 #define OHM_SYMBOL "\u03A9"
 
-extern volatile bool ready_assertion_event; 
+#define TAG "Metriful_sensor"
 
 ////////////////////////////////////////////////////////////////////////
+
+extern volatile bool ready_assertion_event; 
 
 // Data category structs containing floats. If floats are not wanted, 
 // use the integer-only struct versions in sensor_constants.h 
