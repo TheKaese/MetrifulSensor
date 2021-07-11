@@ -1,0 +1,4 @@
+.vscode
+.pio
+platformio.ini
+sdkconfig*
