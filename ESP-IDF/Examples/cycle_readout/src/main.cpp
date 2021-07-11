@@ -43,8 +43,6 @@ LightData_t lightData;
 SoundData_t soundData;
 ParticleData_t particleData;
 
-extern volatile bool ready_assertion_event; 
-
 void main_loop(void *param)
 {
     while (true)
