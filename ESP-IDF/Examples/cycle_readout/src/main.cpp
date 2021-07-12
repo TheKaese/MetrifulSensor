@@ -48,12 +48,12 @@ void main_loop(void *param)
     while (true)
     {
         // Wait for the next new data release, indicated by a falling edge on READY
-        if (!ready_assertion_event)
-        {
-            vTaskDelay(10/portTICK_RATE_MS);
-            continue;
-        }
-        ready_assertion_event = false;
+        // if (!ready_assertion_event)
+        // {
+        vTaskDelay(3000 / portTICK_RATE_MS);
+        //     continue;
+        // }
+        // ready_assertion_event = false;
 
         // Read data from the MS430 into the data structs.
 
@@ -96,7 +96,6 @@ void main_loop(void *param)
         {
             printParticleData(&particleData, printDataAsColumns, PARTICLE_SENSOR);
         }
-        
     }
 }
 
@@ -111,7 +110,7 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Entering cycle mode and waiting for data.");
     ready_assertion_event = false;
-    TransmitI2C(I2C_ADDRESS, CYCLE_MODE_CMD, 0, 0);
+    TransmitI2C(I2C_ADDRESS, ON_DEMAND_MEASURE_CMD, 0, 0);
 
     // Start the main loop
     xTaskCreate(main_loop, "main", 8192, NULL, 0, NULL);

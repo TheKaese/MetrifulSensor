@@ -132,11 +132,17 @@ bool ReceiveI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], 
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   ESP_ERROR_CHECK(i2c_master_start(cmd));
   ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, commandRegister, I2C_MASTER_ACK));
+  ESP_ERROR_CHECK(i2c_master_stop(cmd));
+  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
+  i2c_cmd_link_delete(cmd);
+  
+    vTaskDelay(30 / portTICK_RATE_MS);
+
+  cmd = i2c_cmd_link_create();
   ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (commandRegister << 1) | I2C_MASTER_READ, I2C_MASTER_ACK));
-
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, I2C_MASTER_ACK));
   ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_LAST_NACK));
-
   ESP_ERROR_CHECK(i2c_master_stop(cmd));
   ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
   i2c_cmd_link_delete(cmd);
