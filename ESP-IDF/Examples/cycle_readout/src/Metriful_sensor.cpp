@@ -13,7 +13,7 @@ void SensorHardwareSetup(uint8_t i2c_7bit_address)
 {
   // READY, light interrupt and sound interrupt lines are digital inputs.
   gpio_config_t ready_pin_conf;
-  ready_pin_conf.intr_type = GPIO_INTR_ANYEDGE;
+  ready_pin_conf.intr_type = GPIO_INTR_NEGEDGE;
   ready_pin_conf.mode = GPIO_MODE_INPUT;
   ready_pin_conf.pin_bit_mask = (1ULL << READY_PIN); //23
   ready_pin_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
@@ -109,7 +109,7 @@ bool TransmitI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[],
   ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
   i2c_cmd_link_delete(cmd);
 
-  return 1;
+  return true;
 }
 
 // Read data from the Metriful MS430 using the I2C-compatible two wire interface.
@@ -133,7 +133,7 @@ bool ReceiveI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], 
   ESP_ERROR_CHECK(i2c_master_start(cmd));
   ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK));
   ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, I2C_MASTER_ACK));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (commandRegister << 1) | I2C_MASTER_READ, I2C_MASTER_ACK));
 
   ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_LAST_NACK));
 
