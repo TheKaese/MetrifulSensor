@@ -85,6 +85,65 @@ void ISR_ATTRIBUTE ready_isr(void *arg)
   ready_assertion_event = true;
 }
 
+// Send data to the Metriful MS430 using the I2C-compatible two wire interface.
+//
+// Returns true on success, false on failure.
+//
+// dev_addr_7bit = the 7-bit I2C address of the MS430 board.
+// commandRegister = the settings register code or command code to be used.
+// data = array containing the data to be sent; its length must be at least "data_length" bytes.
+// data_length = the number of bytes from the "data" array to be sent.
+//
+bool TransmitI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], uint8_t data_length)
+{
+  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+  ESP_ERROR_CHECK(i2c_master_start(cmd));
+  i2c_master_write_byte(cmd, (dev_addr_7bit) | I2C_MASTER_WRITE, I2C_MASTER_ACK);
+
+  if (data_length > 0)
+  {
+    i2c_master_write(cmd, data, data_length, I2C_MASTER_ACK);
+  }
+
+  ESP_ERROR_CHECK(i2c_master_stop(cmd));
+  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
+  i2c_cmd_link_delete(cmd);
+
+  return 1;
+}
+
+// Read data from the Metriful MS430 using the I2C-compatible two wire interface.
+//
+// Returns true on success, false on failure.
+//
+// dev_addr_7bit = the 7-bit I2C address of the MS430 board.
+// commandRegister = the settings register code or data location code to be used.
+// data = array to store the received data; its length must be at least "data_length" bytes.
+// data_length = the number of bytes to read.
+//
+bool ReceiveI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], uint8_t data_length)
+{
+  // Cannot do a zero byte read
+  if (data_length == 0)
+  {
+    return false;
+  }
+
+  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+  ESP_ERROR_CHECK(i2c_master_start(cmd));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK));
+  ESP_ERROR_CHECK(i2c_master_start(cmd));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, I2C_MASTER_ACK));
+
+  ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_LAST_NACK));
+
+  ESP_ERROR_CHECK(i2c_master_stop(cmd));
+  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
+  i2c_cmd_link_delete(cmd);
+
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 // Functions to convert data from integer representation to floating-point representation.
@@ -140,65 +199,6 @@ void convertParticleDataF(const ParticleData_t *particleData_in, ParticleData_F_
   particleDataF_out->concentration = ((float)particleData_in->concentration_int) +
                                      (((float)particleData_in->concentration_fr_2dp) / 100.0);
   particleDataF_out->valid = (particleData_in->valid == 1);
-}
-
-// Send data to the Metriful MS430 using the I2C-compatible two wire interface.
-//
-// Returns true on success, false on failure.
-//
-// dev_addr_7bit = the 7-bit I2C address of the MS430 board.
-// commandRegister = the settings register code or command code to be used.
-// data = array containing the data to be sent; its length must be at least "data_length" bytes.
-// data_length = the number of bytes from the "data" array to be sent.
-//
-bool TransmitI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], uint8_t data_length)
-{
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  ESP_ERROR_CHECK(i2c_master_start(cmd));
-  i2c_master_write_byte(cmd, (0x71 << 1) | I2C_MASTER_WRITE, 1);
-
-  if (data_length > 0)
-  {
-    i2c_master_write(cmd, data, data_length, 1);
-  }
-
-  ESP_ERROR_CHECK(i2c_master_stop(cmd));
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
-  i2c_cmd_link_delete(cmd);
-
-  return 1;
-}
-
-// Read data from the Metriful MS430 using the I2C-compatible two wire interface.
-//
-// Returns true on success, false on failure.
-//
-// dev_addr_7bit = the 7-bit I2C address of the MS430 board.
-// commandRegister = the settings register code or data location code to be used.
-// data = array to store the received data; its length must be at least "data_length" bytes.
-// data_length = the number of bytes to read.
-//
-bool ReceiveI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], uint8_t data_length)
-{
-  // Cannot do a zero byte read
-  if (data_length == 0)
-  {
-    return false;
-  }
-
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, 1));
-  ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, 1));
-
-  ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_NACK));
-
-  ESP_ERROR_CHECK(i2c_master_stop(cmd));
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
-  i2c_cmd_link_delete(cmd);
-
-  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -298,28 +298,52 @@ SoundData_t getSoundData(uint8_t i2c_7bit_address)
 
 AirData_t getAirData(uint8_t i2c_7bit_address)
 {
-  AirData_t airData;
+  AirData_t airData = {
+      .T_C_int_with_sign = 0,
+      .T_C_fr_1dp = 0,
+      .P_Pa = 0,
+      .H_pc_int = 0,
+      .H_pc_fr_1dp = 0,
+      .G_ohm = 0};
   ReceiveI2C(i2c_7bit_address, AIR_DATA_READ, (uint8_t *)&airData, AIR_DATA_BYTES);
   return airData;
 }
 
 LightData_t getLightData(uint8_t i2c_7bit_address)
 {
-  LightData_t lightData;
+  LightData_t lightData{
+      .illum_lux_int = 0,
+      .illum_lux_fr_2dp = 0,
+      .white = 0,
+  };
   ReceiveI2C(i2c_7bit_address, LIGHT_DATA_READ, (uint8_t *)&lightData, LIGHT_DATA_BYTES);
   return lightData;
 }
 
 AirQualityData_t getAirQualityData(uint8_t i2c_7bit_address)
 {
-  AirQualityData_t airQualityData;
+  AirQualityData_t airQualityData{
+      .AQI_int = 0,
+      .AQI_fr_1dp = 0,
+      .CO2e_int = 0,
+      .CO2e_fr_1dp = 0,
+      .bVOC_int = 0,
+      .bVOC_fr_2dp = 0,
+      .AQI_accuracy = 0,
+  };
   ReceiveI2C(i2c_7bit_address, AIR_QUALITY_DATA_READ, (uint8_t *)&airQualityData, AIR_QUALITY_DATA_BYTES);
   return airQualityData;
 }
 
 ParticleData_t getParticleData(uint8_t i2c_7bit_address)
 {
-  ParticleData_t particleData;
+  ParticleData_t particleData{
+      .duty_cycle_pc_int = 0,
+      .duty_cycle_pc_fr_2dp = 0,
+      .concentration_int = 0,
+      .concentration_fr_2dp = 0,
+      .valid = 0,
+  };
   ReceiveI2C(i2c_7bit_address, PARTICLE_DATA_READ, (uint8_t *)&particleData, PARTICLE_DATA_BYTES);
   return particleData;
 }
@@ -328,7 +352,7 @@ ParticleData_t getParticleData(uint8_t i2c_7bit_address)
 
 SoundData_F_t getSoundDataF(uint8_t i2c_7bit_address)
 {
-  SoundData_F_t soundDataF;
+  SoundData_F_t soundDataF{0};
   SoundData_t soundData = getSoundData(i2c_7bit_address);
   convertSoundDataF(&soundData, &soundDataF);
   return soundDataF;
@@ -344,7 +368,7 @@ AirData_F_t getAirDataF(uint8_t i2c_7bit_address)
 
 LightData_F_t getLightDataF(uint8_t i2c_7bit_address)
 {
-  LightData_F_t lightDataF;
+  LightData_F_t lightDataF{};
   LightData_t lightData = getLightData(i2c_7bit_address);
   convertLightDataF(&lightData, &lightDataF);
   return lightDataF;
