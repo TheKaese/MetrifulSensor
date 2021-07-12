@@ -39,10 +39,11 @@ void SensorHardwareSetup(uint8_t i2c_7bit_address)
   // Set up interrupt monitoring of the READY signal, triggering on a falling edge
   // event (high-to-low voltage change) indicating READY assertion. The
   // function ready_ISR() will be called when this happens.
-  ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_EDGE));
-  gpio_isr_handler_add(READY_PIN, &ready_isr, (void *)READY_PIN);
+  ESP_ERROR_CHECK(gpio_install_isr_service(0));
+  ESP_ERROR_CHECK(gpio_isr_handler_add(READY_PIN, &ready_isr, (void *)READY_PIN));
 
   // Init I2C
+  ESP_LOGI(TAG, "I2C Param Config");
   i2c_config_t conf;
   conf.mode = I2C_MODE_MASTER;
   conf.sda_io_num = SDA_PIN; //21
@@ -50,26 +51,25 @@ void SensorHardwareSetup(uint8_t i2c_7bit_address)
   conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
   conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
   conf.clk_flags = I2C_SCLK_DEFAULT;
-  conf.master.clk_speed = 100000;
-  ESP_LOGI(TAG, "I2C Param Config");
+  conf.master.clk_speed = I2C_CLK_FREQ_HZ;
   ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
   ESP_LOGI(TAG, "I2C Driver Install");
   ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0));
 
   ESP_LOGI(TAG, "Waiting for Metriful to finish initialization...");
   // Wait for the MS430 to finish power-on initialization:
-  while (gpio_get_level(READY_PIN) > .5)
+  while (gpio_get_level(READY_PIN) > 0)
   {
     vTaskDelay(5 / portTICK_RATE_MS);
   }
 
   // Reset to clear any previous state:
   uint8_t data = 0;
-  TransmitI2C(i2c_7bit_address, RESET_CMD, &data, 1);
+  TransmitI2C(i2c_7bit_address, RESET_CMD, &data, 0);
 
   ESP_LOGI(TAG, "Waiting for Metriful reset");
   // Wait for reset completion and entry to standby mode
-  while (gpio_get_level(GPIO_NUM_23) > .5)
+  while (gpio_get_level(GPIO_NUM_23) > 0)
   {
     vTaskDelay(5 / portTICK_RATE_MS);
   }
@@ -82,7 +82,6 @@ volatile bool ready_assertion_event = false;
 // The flag variable is set true - it must be set false again in the main program.
 void ISR_ATTRIBUTE ready_isr(void *arg)
 {
-  ESP_LOGI(TAG, "Metriful");
   ready_assertion_event = true;
 }
 
@@ -189,11 +188,11 @@ bool ReceiveI2C(uint8_t dev_addr_7bit, uint8_t commandRegister, uint8_t data[], 
 
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, 1 /* expect ack */));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_WRITE, 1));
   ESP_ERROR_CHECK(i2c_master_start(cmd));
-  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, 1 /* expect ack */));
+  ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev_addr_7bit << 1) | I2C_MASTER_READ, 1));
 
-  ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_ACK));
+  ESP_ERROR_CHECK(i2c_master_read(cmd, data, data_length, I2C_MASTER_NACK));
 
   ESP_ERROR_CHECK(i2c_master_stop(cmd));
   ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS));
